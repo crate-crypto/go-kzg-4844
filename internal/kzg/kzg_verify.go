@@ -153,9 +153,9 @@ func BatchVerifyMultiPoints(commitments []Commitment, proofs []OpeningProof, ope
 	// `lhs` second pairing
 	foldedQuotients.Neg(&foldedQuotients)
 
-	check, err := bls12381.PairingCheck(
+	check, err := bls12381.PairingCheckFixedQ(
 		[]bls12381.G1Affine{foldedCommitments, foldedQuotients},
-		[]bls12381.G2Affine{openKey.GenG2, openKey.AlphaG2},
+		openKey.PairingLines[:],
 	)
 	if err != nil {
 		return err

@@ -16,7 +16,7 @@ type OpeningKey struct {
 	// This is the degree-1 G_2 element in the trusted setup.
 	// In the specs, this is denoted as `KZG_SETUP_G2[1]`
 	AlphaG2 bls12381.G2Affine
-	// These are thr precomputed pairing lines corresponding to GenG2 and AlphaG2
+	// These are the precomputed pairing lines corresponding to GenG2 and AlphaG2
 	PairingLines [2][2][len(bls12381.LoopCounter) - 1]bls12381.LineEvaluationAff
 }
 
