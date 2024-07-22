@@ -33,62 +33,28 @@ type OpeningProof struct {
 // [verify_kzg_proof_impl]: https://github.com/ethereum/consensus-specs/blob/017a8495f7671f5fff2075a9bfc9238c1a0982f8/specs/deneb/polynomial-commitments.md#verify_kzg_proof_impl
 // [gnark-crypto]: https://github.com/ConsenSys/gnark-crypto/blob/8f7ca09273c24ed9465043566906cbecf5dcee91/ecc/bls12-381/fr/kzg/kzg.go#L166
 func Verify(commitment *Commitment, proof *OpeningProof, openKey *OpeningKey) error {
-	// [-1]G₂
-	// It's possible to precompute this, however Negation
-	// is cheap (2 Fp negations), so doing it per verify
-	// should be insignificant compared to the rest of Verify.
-	var negG2 bls12381.G2Affine
-	negG2.Neg(&openKey.GenG2)
 
-	// Convert the G2 generator to Jacobian for
-	// later computations.
-	var genG2Jac bls12381.G2Jac
-	genG2Jac.FromAffine(&openKey.GenG2)
+	// [f(α)]G₁ + [-α]([H(z)]G₁) = [f(α) - α*H(z)]G₁
+	var totalG1 bls12381.G1Jac
+	var pointNeg fr.Element
+	var cmInt, pointInt big.Int
+	proof.ClaimedValue.BigInt(&cmInt)
+	pointNeg.Neg(&proof.InputPoint).BigInt(&pointInt)
+	totalG1.JointScalarMultiplication(&openKey.GenG1, &proof.QuotientCommitment, &cmInt, &pointInt)
 
-	// This has been changed slightly from the way that gnark-crypto
-	// does it to show the symmetry in the computation required for
-	// G₂ and G₁. This is the way it is done in the specs.
+	// [f(α) - α*H(z)]G₁ + [-f(z)]G₁  = [f(α) - f(z) - α*H(z)]G₁
+	var commitmentJac bls12381.G1Jac
+	commitmentJac.FromAffine(commitment)
+	totalG1.SubAssign(&commitmentJac)
 
-	// [z]G₂
-	var inputPointG2Jac bls12381.G2Jac
-	var pointBigInt big.Int
-	proof.InputPoint.BigInt(&pointBigInt)
-	inputPointG2Jac.ScalarMultiplication(&genG2Jac, &pointBigInt)
-
-	// In the specs, this is denoted as `X_minus_z`
-	//
-	// [α - z]G₂
-	var alphaMinusZG2Jac bls12381.G2Jac
-	alphaMinusZG2Jac.FromAffine(&openKey.AlphaG2)
-	alphaMinusZG2Jac.SubAssign(&inputPointG2Jac)
-
-	// [α-z]G₂ (Convert to Affine format)
-	var alphaMinusZG2Aff bls12381.G2Affine
-	alphaMinusZG2Aff.FromJacobian(&alphaMinusZG2Jac)
-
-	// [f(z)]G₁
-	var claimedValueG1Jac bls12381.G1Jac
-	var claimedValueBigInt big.Int
-	proof.ClaimedValue.BigInt(&claimedValueBigInt)
-	var GenG1Jac bls12381.G1Jac
-	GenG1Jac.FromAffine(&openKey.GenG1)
-	claimedValueG1Jac.ScalarMultiplication(&GenG1Jac, &claimedValueBigInt)
-
-	//  In the specs, this is denoted as `P_minus_y`
-	//
-	// [f(α) - f(z)]G₁
-	var fminusfzG1Jac bls12381.G1Jac
-	fminusfzG1Jac.FromAffine(commitment)
-	fminusfzG1Jac.SubAssign(&claimedValueG1Jac)
-
-	// [f(α) - f(z)]G₁ (Convert to Affine format)
-	var fminusfzG1Aff bls12381.G1Affine
-	fminusfzG1Aff.FromJacobian(&fminusfzG1Jac)
-
-	check, err := bls12381.PairingCheck(
-		[]bls12381.G1Affine{fminusfzG1Aff, proof.QuotientCommitment},
-		[]bls12381.G2Affine{negG2, alphaMinusZG2Aff},
+	// e([f(z)-f(α)+aH(z)]G₁], G₂).e([-H(z)]G₁, [z]G₂) == 1
+	var totalG1Aff bls12381.G1Affine
+	totalG1Aff.FromJacobian(&totalG1)
+	check, err := bls12381.PairingCheckFixedQ(
+		[]bls12381.G1Affine{totalG1Aff, proof.QuotientCommitment},
+		openKey.PairingLines[:],
 	)
+
 	if err != nil {
 		return err
 	}
