@@ -34,7 +34,7 @@ type OpeningProof struct {
 // [gnark-crypto]: https://github.com/ConsenSys/gnark-crypto/blob/8f7ca09273c24ed9465043566906cbecf5dcee91/ecc/bls12-381/fr/kzg/kzg.go#L166
 func Verify(commitment *Commitment, proof *OpeningProof, openKey *OpeningKey) error {
 
-	// [f(α)]G₁ + [-α]([H(z)]G₁) = [f(α) - α*H(z)]G₁
+	// [f(z)]G₁ + [-z]([H(α)]G₁) = [f(z) - z*H(α)]G₁
 	var totalG1 bls12381.G1Jac
 	var pointNeg fr.Element
 	var cmInt, pointInt big.Int
@@ -42,17 +42,17 @@ func Verify(commitment *Commitment, proof *OpeningProof, openKey *OpeningKey) er
 	pointNeg.Neg(&proof.InputPoint).BigInt(&pointInt)
 	totalG1.JointScalarMultiplication(&openKey.GenG1, &proof.QuotientCommitment, &cmInt, &pointInt)
 
-	// [f(α) - α*H(z)]G₁ + [-f(z)]G₁  = [f(α) - f(z) - α*H(z)]G₁
+	// [f(z) - z*H(α)]G₁ + [-f(α)]G₁  = [f(z) - f(α) - z*H(α)]G₁
 	var commitmentJac bls12381.G1Jac
 	commitmentJac.FromAffine(commitment)
 	totalG1.SubAssign(&commitmentJac)
 
-	// e([f(z)-f(α)+aH(z)]G₁], G₂).e([-H(z)]G₁, [z]G₂) == 1
+	// e([f(α)-f(z)+aH(α)]G₁], G₂).e([-H(α)]G₁, [α]G₂) == 1
 	var totalG1Aff bls12381.G1Affine
 	totalG1Aff.FromJacobian(&totalG1)
-	check, err := bls12381.PairingCheckFixedQ(
+	check, err := bls12381.PairingCheck(
 		[]bls12381.G1Affine{totalG1Aff, proof.QuotientCommitment},
-		openKey.PairingLines[:],
+		[]bls12381.G2Affine{openKey.GenG2, openKey.AlphaG2},
 	)
 
 	if err != nil {
@@ -153,9 +153,9 @@ func BatchVerifyMultiPoints(commitments []Commitment, proofs []OpeningProof, ope
 	// `lhs` second pairing
 	foldedQuotients.Neg(&foldedQuotients)
 
-	check, err := bls12381.PairingCheckFixedQ(
+	check, err := bls12381.PairingCheck(
 		[]bls12381.G1Affine{foldedCommitments, foldedQuotients},
-		openKey.PairingLines[:],
+		[]bls12381.G2Affine{openKey.GenG2, openKey.AlphaG2},
 	)
 	if err != nil {
 		return err
