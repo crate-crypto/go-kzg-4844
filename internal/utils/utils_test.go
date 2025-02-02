@@ -98,7 +98,7 @@ func TestCanonicalEncoding(t *testing.T) {
 	reducedBytes := reduced.Bytes()
 
 	// First we should check that the reduced version
-	// is different to the unreduced version, incase one changes the
+	// is different to the unreduced version, in case one changes the
 	// implementation in the future
 	if bytes.Equal(unreducedBytes, reducedBytes[:]) {
 		t.Error("unreduced representation of field element, is the same as the reduced representation")
