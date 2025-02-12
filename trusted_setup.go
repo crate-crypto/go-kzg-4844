@@ -73,7 +73,7 @@ func CheckTrustedSetupIsWellFormed(trustedSetup *JSONTrustedSetup) error {
 // which contains hex encoded strings to corresponding group elements.
 // Elements are assumed to be well-formed.
 //
-// This method wil panic if the points have not been serialized correctly.
+// This method will panic if the points have not been serialized correctly.
 func parseTrustedSetup(trustedSetup *JSONTrustedSetup) (bls12381.G1Affine, []bls12381.G1Affine, []bls12381.G2Affine) {
 	// The G1 generator is the first element of the monomial G1 points.
 	// We do not have that and so we use the fact that the setup started at
