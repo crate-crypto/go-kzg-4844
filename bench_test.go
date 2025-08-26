@@ -47,7 +47,7 @@ func GetRandBlob(seed int64) *gokzg4844.Blob {
 
 func Benchmark(b *testing.B) {
 	const length = 64
-	blobs := make([]gokzg4844.Blob, length)
+	blobs := make([]*gokzg4844.Blob, length)
 	commitments := make([]gokzg4844.KZGCommitment, length)
 	proofs := make([]gokzg4844.KZGProof, length)
 	fields := make([]gokzg4844.Scalar, length)
@@ -59,7 +59,7 @@ func Benchmark(b *testing.B) {
 		proof, err := ctx.ComputeBlobKZGProof(blob, commitment, NumGoRoutines)
 		require.NoError(b, err)
 
-		blobs[i] = *blob
+		blobs[i] = blob
 		commitments[i] = commitment
 		proofs[i] = proof
 		fields[i] = GetRandFieldElement(int64(i))
@@ -72,21 +72,21 @@ func Benchmark(b *testing.B) {
 	b.Run("BlobToKZGCommitment", func(b *testing.B) {
 		b.ReportAllocs()
 		for n := 0; n < b.N; n++ {
-			_, _ = ctx.BlobToKZGCommitment(&blobs[0], NumGoRoutines)
+			_, _ = ctx.BlobToKZGCommitment(blobs[0], NumGoRoutines)
 		}
 	})
 
 	b.Run("ComputeKZGProof", func(b *testing.B) {
 		b.ReportAllocs()
 		for n := 0; n < b.N; n++ {
-			_, _, _ = ctx.ComputeKZGProof(&blobs[0], fields[0], NumGoRoutines)
+			_, _, _ = ctx.ComputeKZGProof(blobs[0], fields[0], NumGoRoutines)
 		}
 	})
 
 	b.Run("ComputeBlobKZGProof", func(b *testing.B) {
 		b.ReportAllocs()
 		for n := 0; n < b.N; n++ {
-			_, _ = ctx.ComputeBlobKZGProof(&blobs[0], commitments[0], NumGoRoutines)
+			_, _ = ctx.ComputeBlobKZGProof(blobs[0], commitments[0], NumGoRoutines)
 		}
 	})
 
@@ -100,7 +100,7 @@ func Benchmark(b *testing.B) {
 	b.Run("VerifyBlobKZGProof", func(b *testing.B) {
 		b.ReportAllocs()
 		for n := 0; n < b.N; n++ {
-			_ = ctx.VerifyBlobKZGProof(&blobs[0], commitments[0], proofs[0])
+			_ = ctx.VerifyBlobKZGProof(blobs[0], commitments[0], proofs[0])
 		}
 	})
 
